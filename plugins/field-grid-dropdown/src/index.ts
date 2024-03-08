@@ -12,27 +12,9 @@
 import * as Blockly from 'blockly/core';
 
 /**
- * A config object for defining a field grid dropdown.
- */
-export interface FieldGridDropdownConfig extends Blockly.FieldDropdownConfig {
-  columns?: string | number;
-  primaryColour?: string;
-  borderColour?: string;
-}
-
-/**
- * Construct a FieldGridDropdown from a JSON arg object.
- */
-export interface FieldGridDropdownFromJsonConfig
-  extends FieldGridDropdownConfig {
-  options?: Blockly.MenuGenerator;
-}
-
-type FieldGridDropdownValidator = Blockly.FieldDropdownValidator;
-
-/**
  * Grid dropdown field.
  */
+// @ts-ignore
 export class FieldGridDropdown extends Blockly.FieldDropdown {
   /**
    * The number of columns in the dropdown grid. Must be an integer value
@@ -43,6 +25,16 @@ export class FieldGridDropdown extends Blockly.FieldDropdown {
   private primaryColour?: string;
 
   private borderColour?: string;
+  searchInputDiv: any = null;
+  listener = false;
+  searchString = '';
+  cursor = 0;
+  filteredOptions: any;
+  option_function: any;
+  dropdownDiv: any;
+  inputEventFunction:any;
+  keydownEventFunction:any;
+  originalOptions: any;
 
   /**
    * Class for an grid dropdown field.
@@ -62,11 +54,12 @@ export class FieldGridDropdown extends Blockly.FieldDropdown {
    * @throws {TypeError} If `menuGenerator` options are incorrectly structured.
    */
   constructor(
-    menuGenerator: Blockly.MenuGenerator,
-    validator?: FieldGridDropdownValidator,
-    config?: FieldGridDropdownConfig,
+    menuGenerator: any,
+    validator?: any,
+    config?: any,
   ) {
     super(menuGenerator, validator, config);
+    this.option_function = menuGenerator;
 
     if (config?.columns) {
       this.setColumnsInternal(config.columns);
@@ -79,6 +72,7 @@ export class FieldGridDropdown extends Blockly.FieldDropdown {
     if (config && config.borderColour) {
       this.borderColour = config.borderColour;
     }
+    this.originalOptions = this.getOptions();
   }
 
   /**
@@ -89,7 +83,7 @@ export class FieldGridDropdown extends Blockly.FieldDropdown {
    * @package
    * @nocollapse
    */
-  static fromJson(config: FieldGridDropdownFromJsonConfig) {
+  static fromJson(config: any) {
     if (!config.options) {
       throw new Error(
         'options are required for the dropdown field. The ' +
@@ -137,6 +131,25 @@ export class FieldGridDropdown extends Blockly.FieldDropdown {
   protected showEditor_(e?: MouseEvent) {
     super.showEditor_(e);
 
+      // add the search input
+      if(this.originalOptions.length >= 10) {
+        this.searchInputDiv = this.dropdownCreateSearch_();
+      }
+      // set the focus on the search input
+      this.setFocusToInput();
+      this.searchString = '';
+      if (!this.listener) {
+        this.dropdownDiv = Blockly.DropDownDiv.getContentDiv();
+        this.inputEventFunction =  this.dropdownSearchOnChange_.bind(this);
+        this.keydownEventFunction = this.handleKeyEvent_.bind(this);
+        this.dropdownDiv.addEventListener(
+          'input',
+          this.inputEventFunction,
+        );
+  
+        this.dropdownDiv.addEventListener('keydown', this.keydownEventFunction);
+        this.listener = true;
+      }
     const colours = this.getColours();
     if (colours && colours.border) {
       Blockly.DropDownDiv.setColour(colours.primary, colours.border);
@@ -154,6 +167,117 @@ export class FieldGridDropdown extends Blockly.FieldDropdown {
     );
   }
 
+   // create a search input
+   dropdownCreateSearch_() {
+    var searchInput = document.createElement('input');
+    searchInput.setAttribute('type', 'search');
+    searchInput.setAttribute('placeholder', 'Search...');
+    searchInput.setAttribute('autocomplete', 'off');
+    searchInput.style.width = '100%';
+    searchInput.setAttribute('value', this.searchString);
+    Blockly.DropDownDiv.getContentDiv().insertBefore(
+      searchInput,
+      Blockly.DropDownDiv.getContentDiv().firstChild,
+    );
+    return searchInput;
+  }
+
+  // handle the search input change event
+  dropdownSearchOnChange_(event: any) {
+    const searchStringLower = event.target.value
+      .toLowerCase()
+      .replaceAll('_', ' ');
+    // save the filtered options needed for the enter key
+    this.filteredOptions = this.originalOptions.filter(function (option: any) {
+      let all_parts_found = true;
+      const parts = searchStringLower.split(' ');
+      for (var i = 0; i < parts.length; i++) {
+        const searchString = parts[i];
+        all_parts_found =
+          all_parts_found &&
+          option[0].toLowerCase().indexOf(searchString) !== -1;
+      }
+      return all_parts_found;
+    });
+    if (this.filteredOptions.length == 0) {
+      this.filteredOptions = [['no matches', 'no matches']];
+    }
+
+    // save the search string and the cursor position
+    this.searchString = event.target.value;
+    // cursor not saved in the this as it is not available in the set
+    this.cursor = event.target.selectionStart;
+    this.updateOptions_(this.filteredOptions);
+
+    // Set a timeout to focus on the search input after a short delay.
+  }
+
+  setFocusToInput() {
+      if (!this.searchInputDiv) {
+        return;
+      }
+      this.searchInputDiv.focus();
+
+      var cursor = this.cursor;
+      this.searchInputDiv.setSelectionRange(cursor, cursor);
+  }
+
+  updateOptions_(options: any) {    
+    // set the options to the filtered options
+    this.menuGenerator_ = options;
+    // render the menu
+    this.dropdownDispose_();
+    Blockly.DropDownDiv.clearContent();
+    this.showEditor_();
+    // restore the options
+    this.menuGenerator_ = this.option_function;
+    
+  }
+
+  // handle the enter and down arrow keys
+  handleKeyEvent_(event: any) {
+      const key = event.which || event.keyCode;
+
+    // enter select the only option
+    if (key == 13) {
+      // enter
+      const options = this.filteredOptions || this.getOptions();
+
+      // select the first options on enter
+      if (options.length >= 1) {
+        this.setValue(options[0][1]);
+        this.searchString = '';
+        Blockly.DropDownDiv.hideIfOwner(this, true);
+      }
+    } else if (key == 40) {
+      // down arrow goto to the first option
+      // select the first option in the menu
+      const options = this.filteredOptions || this.getOptions();
+      if (options.length > 0) {
+        // get the menu
+        const menu: any = this.menu_;
+        menu.highlightFirst();
+        menu.focus();
+      }
+    } else if (key == 27) {
+        Blockly.DropDownDiv.hideIfOwner(this, true);
+    }
+    else {
+      // redirect the key to the search input
+      if (this.searchInputDiv) {
+        this.searchInputDiv.focus();
+        // let the event goto the search input
+      }
+    }
+  }
+
+  // @ts-ignore
+  private dropdownDispose_() {
+    super.dropdownDispose_();
+    this.dropdownDiv.removeEventListener('input', this.inputEventFunction);
+      this.dropdownDiv.removeEventListener('keydown', this.keydownEventFunction);
+      this.listener = false;
+  }
   /**
    * Updates the styling for number of columns on the dropdown.
    */
