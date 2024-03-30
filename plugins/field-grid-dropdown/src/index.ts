@@ -188,7 +188,7 @@ export class FieldGridDropdown extends Blockly.FieldDropdown {
       .toLowerCase()
       .replaceAll('_', ' ');
     // save the filtered options needed for the enter key
-    this.filteredOptions = this.originalOptions.filter(function (option: any) {
+    this.filteredOptions = this.getOptions().filter(function (option: any) {
       let all_parts_found = true;
       const parts = searchStringLower.split(' ');
       for (var i = 0; i < parts.length; i++) {

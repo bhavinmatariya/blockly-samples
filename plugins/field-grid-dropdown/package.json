@@ -1,7 +1,7 @@
 {
-  "name": "@blockly/field-grid-dropdown",
-  "version": "4.0.11",
-  "description": "A Blockly dropdown field with grid layout.",
+  "name": "field-grid-dropdown-custom",
+  "version": "2.0.1",
+  "description": "A Blockly dropdown field with grid layout and search.",
   "scripts": {
     "build": "blockly-scripts build",
     "clean": "blockly-scripts clean",
@@ -26,7 +26,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/google/blockly-samples.git",
+    "url": "https://github.com/bhavinmatariya/blockly-samples.git",
     "directory": "plugins/field-grid-dropdown"
   },
   "license": "Apache 2.0",
@@ -46,10 +46,6 @@
   },
   "peerDependencies": {
     "blockly": "^10.0.0"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://wombat-dressing-room.appspot.com"
   },
   "engines": {
     "node": ">=8.17.0"
